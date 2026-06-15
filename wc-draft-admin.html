@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>⚽ WC2026 管理者</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:#0D1B2A;color:#E8F0FE;font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh;}
+button{cursor:pointer;-webkit-tap-highlight-color:transparent;font-family:inherit;}
+input{color:#E8F0FE;outline:none;font-family:inherit;}
+input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;}
+.screen{display:none;padding:14px;}
+.screen.active{display:block;}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.lbl{font-size:11px;color:#8BA0B0;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;}
+.sx{display:flex;overflow-x:auto;gap:4px;padding-bottom:4px;}
+.inp{background:#0D1B2A;border:1px solid #2A3F50;border-radius:6px;padding:6px 8px;font-size:12px;width:100%;color:#E8F0FE;}
+.toast{position:fixed;top:16px;left:50%;transform:translateX(-50%);padding:10px 20px;border-radius:99px;
+  font-weight:700;z-index:999;font-size:14px;white-space:nowrap;
+  box-shadow:0 4px 20px rgba(0,0,0,.5);display:none;color:#fff;}
+.tabs{display:flex;}
+.tab{flex:1;padding:9px 0;border:none;background:transparent;color:#8BA0B0;font-size:12px;
+  font-weight:700;border-bottom:2px solid transparent;cursor:pointer;}
+.tab.on{color:#FFD60A;border-bottom-color:#FFD60A;}
+.sync{font-size:10px;color:#2D9A5F;text-align:right;line-height:1.7;}
+</style>
+</head>
+<body>
+<div id="toast" class="toast"></div>
+
+<div style="background:linear-gradient(135deg,#0D1B2A,#1A3A2A);border-bottom:2px solid #2D6A4F;padding:12px 16px 0;">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+    <div>
+      <div style="font-size:10px;color:#2D9A5F;letter-spacing:3px;text-transform:uppercase;font-weight:700;">⚽ World Cup 2026</div>
+      <div style="font-size:20px;font-weight:900;color:#FFD60A;">管理者画面</div>
+    </div>
+    <div class="sync" id="syncst">☁️ 接続中...</div>
+  </div>
+  <div class="tabs">
+    <button class="tab on" onclick="go('setup')">⚙️ 設定</button>
+    <button class="tab" onclick="go('game')">🏟 ゲーム</button>
+    <button class="tab" onclick="go('edit')">✏️ 編集</button>
+    <button class="tab" onclick="go('history')">📋 履歴</button>
+  </div>
+</div>
+
+<div id="s-setup" class="screen active">
+  <div class="lbl">プレイヤー名</div>
+  <div class="g2" id="pnames" style="margin-bottom:16px;"></div>
+  <div class="lbl">チームを選択（グループ別）</div>
+  <div class="sx" id="gtabs" style="margin-bottom:10px;"></div>
+  <div id="gteams" style="background:#0A1520;border:1px solid #1A3A4A;border-radius:12px;padding:12px;margin-bottom:14px;"></div>
+  <div class="lbl">獲得チーム</div>
+  <div class="g2" id="tsum" style="margin-bottom:16px;"></div>
+  <button onclick="resetAll()" style="width:100%;background:#E6394618;border:1px solid #E6394644;color:#E63946;font-weight:700;font-size:13px;border-radius:10px;padding:10px 0;">🗑 全データをリセット</button>
+</div>
+
+<div id="s-game" class="screen">
+  <div class="g2" id="sb" style="margin-bottom:16px;"></div>
+  <div id="tsel"></div>
+  <div id="evbtn" style="margin-top:8px;"></div>
+  <div id="paypanel" style="margin-top:20px;"></div>
+</div>
+
+<div id="s-edit" class="screen">
+  <div class="lbl">イベント一覧を編集</div>
+  <div id="evlist" style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px;"></div>
+  <div style="background:#0A1520;border:1px dashed #2D6A4F;border-radius:10px;padding:12px;">
+    <div style="font-size:11px;color:#2D9A5F;font-weight:700;letter-spacing:2px;margin-bottom:10px;text-transform:uppercase;">＋ 新しいイベントを追加</div>
+    <div style="margin-bottom:8px;">
+      <div style="font-size:10px;color:#4A6070;margin-bottom:3px;">ラベル</div>
+      <input id="nl" class="inp" placeholder="例：🎯 ハットトリック">
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+      <div style="flex:1;">
+        <div style="font-size:10px;color:#4A6070;margin-bottom:3px;">ポイント</div>
+        <input id="np" type="number" class="inp" placeholder="例：500">
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+        <div style="font-size:10px;color:#4A6070;">RC扱い</div>
+        <div id="nrc" onclick="flipNRC()" style="width:36px;height:20px;border-radius:99px;position:relative;cursor:pointer;background:#1A2E3A;border:1px solid #2A3F50;">
+          <div id="nrc-k" style="position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff;transition:left .2s;"></div>
+        </div>
+      </div>
+    </div>
+    <button onclick="addEv()" style="width:100%;background:linear-gradient(90deg,#2D6A4F,#1A5C3A);color:#fff;font-weight:900;font-size:14px;border:none;border-radius:10px;padding:11px 0;">追加する</button>
+  </div>
+  <div style="margin-top:12px;font-size:11px;color:#4A6070;line-height:1.6;">💡 RC扱い = マイナス分を他3人が1/3ずつ受け取る</div>
+</div>
+
+<div id="s-history" class="screen">
+  <div class="lbl">イベント履歴</div>
+  <div id="hlist" style="display:flex;flex-direction:column;gap:8px;"></div>
+</div>
+
+<script>
+// ★★★ ここを書き換えてください ★★★
+var SUPABASE_URL = "https://dilhfpwtnuyyklhlllbx.supabase.co";
+var SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRpbGhmcHd0bnV5eWtsaGxsbGJ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA5OTc0MTEsImV4cCI6MjA5NjU3MzQxMX0.v4-u7-MFIR3wt5dleiclTcVE1Vvet8UzSLhe9RnM6n4";
+// ★★★★★★★★★★★★★★★★★★★
+
+var GROUPS = {
+  A:["メキシコ 🇲🇽","南アフリカ 🇿🇦","韓国 🇰🇷","チェコ 🇨🇿"],
+  B:["カナダ 🇨🇦","ボスニア・ヘルツェゴビナ 🇧🇦","カタール 🇶🇦","スイス 🇨🇭"],
+  C:["ブラジル 🇧🇷","モロッコ 🇲🇦","ハイチ 🇭🇹","スコットランド 🏴󠁧󠁢󠁳󠁣󠁴󠁿"],
+  D:["アメリカ 🇺🇸","パラグアイ 🇵🇾","オーストラリア 🇦🇺","トルコ 🇹🇷"],
+  E:["ドイツ 🇩🇪","キュラソー 🇨🇼","コートジボワール 🇨🇮","エクアドル 🇪🇨"],
+  F:["オランダ 🇳🇱","日本 🇯🇵","スウェーデン 🇸🇪","チュニジア 🇹🇳"],
+  G:["ベルギー 🇧🇪","エジプト 🇪🇬","イラン 🇮🇷","ニュージーランド 🇳🇿"],
+  H:["スペイン 🇪🇸","カーボベルデ 🇨🇻","サウジアラビア 🇸🇦","ウルグアイ 🇺🇾"],
+  I:["フランス 🇫🇷","セネガル 🇸🇳","イラク 🇮🇶","ノルウェー 🇳🇴"],
+  J:["アルゼンチン 🇦🇷","アルジェリア 🇩🇿","オーストリア 🇦🇹","ヨルダン 🇯🇴"],
+  K:["ポルトガル 🇵🇹","コンゴ民主共和国 🇨🇩","ウズベキスタン 🇺🇿","コロンビア 🇨🇴"],
+  L:["イングランド 🏴󠁧󠁢󠁥󠁮󠁧󠁿","クロアチア 🇭🇷","ガーナ 🇬🇭","パナマ 🇵🇦"]
+};
+var DEV=[
+  {id:"gs",label:"🏆 グループ突破",pts:900,rc:false},
+  {id:"r16",label:"⚽ ベスト16突破",pts:900,rc:false},
+  {id:"qf",label:"⚽ 準々決勝突破",pts:900,rc:false},
+  {id:"sf",label:"⚽ 準決勝突破",pts:900,rc:false},
+  {id:"th",label:"🥉 3位入賞",pts:1500,rc:false},
+  {id:"ru",label:"🥈 準優勝",pts:3000,rc:false},
+  {id:"ch",label:"🥇 優勝",pts:6000,rc:false},
+  {id:"red",label:"🟥 レッドカード",pts:-1500,rc:true},
+  {id:"mvp",label:"⭐ MVP選手",pts:1500,rc:false},
+  {id:"ts",label:"👟 得点王",pts:1500,rc:false}
+];
+var PC=["#4CC9F0","#F72585","#7BFF6A","#FF9F1C"];
+var PB=["#0A2540","#2A0A1F","#0A2A10","#2A1800"];
+var eid=100, nrcOn=false;
+var P=[{id:0,name:"プレイヤー1",teams:[]},{id:1,name:"プレイヤー2",teams:[]},{id:2,name:"プレイヤー3",teams:[]},{id:3,name:"プレイヤー4",teams:[]}];
+var H=[], EV=DEV.map(function(e){return {id:e.id,label:e.label,pts:e.pts,rc:e.rc};});
+var selP=null, selT=null, dtab="A";
+
+// Supabase REST API
+function sbFetch(method, body) {
+  return fetch(SUPABASE_URL+"/rest/v1/game_state?id=eq.main", {
+    method: method,
+    headers: {
+      "apikey": SUPABASE_KEY,
+      "Authorization": "Bearer "+SUPABASE_KEY,
+      "Content-Type": "application/json",
+      "Prefer": "return=minimal"
+    },
+    body: body ? JSON.stringify(body) : undefined
+  });
+}
+
+function loadCloud() {
+  fetch(SUPABASE_URL+"/rest/v1/game_state?id=eq.main&select=players,history,events", {
+    headers: {"apikey": SUPABASE_KEY, "Authorization": "Bearer "+SUPABASE_KEY}
+  })
+  .then(function(r){return r.json();})
+  .then(function(data){
+    if(data && data[0]) {
+      if(data[0].players && data[0].players.length) P = data[0].players;
+      if(data[0].history) H = data[0].history;
+      if(data[0].events && data[0].events.length) EV = data[0].events;
+    }
+    setSyncSt("☁️ 同期済み");
+    drawSetup(); drawGame();
+  })
+  .catch(function(){setSyncSt("⚠️ オフライン");});
+}
+
+function saveCloud() {
+  setSyncSt("⏫ 保存中...");
+  sbFetch("PATCH", {players:P, history:H, events:EV, updated_at: new Date().toISOString()})
+  .then(function(){setSyncSt("☁️ 同期済み");})
+  .catch(function(){setSyncSt("⚠️ 保存失敗");});
+}
+
+function setSyncSt(msg){document.getElementById("syncst").textContent=msg;}
+
+function totalPt(pid){return H.filter(function(h){return h.pid===pid;}).reduce(function(s,h){return s+h.pts;},0);}
+function plusPt(pid){return H.filter(function(h){return h.pid===pid&&!h.rc;}).reduce(function(s,h){return s+Math.max(0,h.pts);},0);}
+function scost(pid){return P.filter(function(p){return p.id!==pid;}).reduce(function(s,o){return s+Math.round(plusPt(o.id)/3);},0);}
+function rcbon(pid){return H.filter(function(h){return h.pid!==pid&&h.rc;}).reduce(function(s,h){return s+Math.round(Math.abs(h.pts)/3);},0);}
+function netPt(pid){return totalPt(pid)-scost(pid)+rcbon(pid);}
+function owner(t){return P.find(function(p){return p.teams.indexOf(t)!==-1;});}
+function x(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
+function fmt(n){return (n>=0?"+":"")+Number(n).toLocaleString();}
+
+function showToast(msg,err){
+  var el=document.getElementById("toast");
+  el.textContent=msg; el.style.background=err?"#E63946":"#2D6A4F"; el.style.display="block";
+  setTimeout(function(){el.style.display="none";},2800);
+}
+
+function go(name){
+  ["setup","game","edit","history"].forEach(function(n){document.getElementById("s-"+n).classList.remove("active");});
+  document.querySelectorAll(".tab").forEach(function(t){t.classList.remove("on");});
+  document.getElementById("s-"+name).classList.add("active");
+  document.querySelectorAll(".tab")[["setup","game","edit","history"].indexOf(name)].classList.add("on");
+  if(name==="setup")drawSetup();
+  if(name==="game")drawGame();
+  if(name==="edit")drawEdit();
+  if(name==="history")drawHist();
+}
+
+function drawSetup(){
+  var h="";
+  P.forEach(function(p){
+    h+='<div style="background:'+PB[p.id]+';border:1.5px solid '+PC[p.id]+'44;border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:8px;">'
+     +'<div style="width:8px;height:8px;border-radius:50%;background:'+PC[p.id]+';flex-shrink:0;"></div>'
+     +'<input data-pid="'+p.id+'" onchange="renP(this)" style="background:transparent;border:none;border-bottom:1px solid '+PC[p.id]+'66;color:'+PC[p.id]+';font-weight:800;font-size:14px;width:100%;padding:2px 0;" value="'+x(p.name)+'">'
+     +'</div>';
+  });
+  document.getElementById("pnames").innerHTML=h;
+  var gt="";
+  Object.keys(GROUPS).forEach(function(g){
+    var cnt=GROUPS[g].filter(function(t){return owner(t);}).length;
+    gt+='<button onclick="setDT(\''+g+'\')" style="flex-shrink:0;padding:6px 12px;border-radius:8px;border:none;font-size:12px;font-weight:700;background:'+(dtab===g?"#FFD60A":"#1A2E3A")+';color:'+(dtab===g?"#0D1B2A":cnt>0?"#4CC9F0":"#8BA0B0")+';">'+g+(cnt?" ("+cnt+")":"")+"</button>";
+  });
+  document.getElementById("gtabs").innerHTML=gt;
+  var gd='<div style="font-size:12px;color:#FFD60A;font-weight:700;margin-bottom:10px;">グループ '+dtab+'</div>';
+  GROUPS[dtab].forEach(function(team){
+    var own=owner(team);
+    gd+='<div style="margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid #1A2E3A;"><div style="font-size:13px;color:#C0D0E0;margin-bottom:6px;">'+x(team)+'</div><div style="display:flex;gap:6px;flex-wrap:wrap;">';
+    P.forEach(function(p){
+      var isO=p.teams.indexOf(team)!==-1, tak=own&&own.id!==p.id;
+      gd+='<button onclick="togT('+p.id+',\''+x(team)+'\')" style="padding:5px 13px;border-radius:99px;border:1.5px solid '+(isO?PC[p.id]:PC[p.id]+"44")+';background:'+(isO?PC[p.id]:"transparent")+';color:'+(isO?"#0D1B2A":tak?"#2A3A4A":PC[p.id])+';font-size:11px;font-weight:700;opacity:'+(tak?0.35:1)+';">'+x(p.name)+'</button>';
+    });
+    gd+='</div></div>';
+  });
+  document.getElementById("gteams").innerHTML=gd;
+  var ts="";
+  P.forEach(function(p){
+    ts+='<div style="background:'+PB[p.id]+';border:1px solid '+PC[p.id]+'33;border-radius:10px;padding:10px;"><div style="font-size:12px;font-weight:800;color:'+PC[p.id]+';margin-bottom:5px;">'+x(p.name)+' ('+p.teams.length+')</div>';
+    if(!p.teams.length){ts+='<div style="font-size:11px;color:#4A6070;font-style:italic;">未選択</div>';}
+    else{p.teams.forEach(function(t){ts+='<div style="font-size:11px;color:#C0D0E0;padding:2px 0;border-bottom:1px solid #1A2E3A;">'+x(t)+'</div>';});}
+    ts+='</div>';
+  });
+  document.getElementById("tsum").innerHTML=ts;
+}
+
+function drawGame(){
+  var sorted=P.slice().sort(function(a,b){return netPt(b.id)-netPt(a.id);});
+  var sb="";
+  sorted.forEach(function(p,i){
+    var e=totalPt(p.id),c=scost(p.id),n=netPt(p.id),sel=selP===p.id;
+    sb+='<div onclick="selPl('+p.id+')" style="background:'+(sel?PC[p.id]+"22":PB[p.id])+';border:2px solid '+(sel?PC[p.id]:PC[p.id]+"44")+';border-radius:12px;padding:10px 8px;text-align:center;cursor:pointer;position:relative;">'
+      +(i===0?'<div style="position:absolute;top:-9px;left:50%;transform:translateX(-50%);font-size:14px;">👑</div>':"")
+      +'<div style="font-size:10px;color:'+PC[p.id]+';font-weight:700;margin-top:'+(i===0?4:0)+'px;margin-bottom:2px;">'+(i+1)+'位</div>'
+      +'<div style="font-size:12px;font-weight:800;color:'+PC[p.id]+';overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:3px;">'+x(p.name)+'</div>'
+      +'<div style="font-size:19px;font-weight:900;color:'+(n>=0?"#FFD60A":"#E63946")+';margin-bottom:3px;">'+fmt(n)+'<span style="font-size:10px;color:#4A6070;margin-left:2px;">pt</span></div>'
+      +'<div style="font-size:10px;color:#4A6070;line-height:1.7;">獲得 <span style="color:#4CC9F0;">+'+e.toLocaleString()+'</span>　支払 <span style="color:#E63946;">-'+c.toLocaleString()+'</span></div>'
+      +'</div>';
+  });
+  document.getElementById("sb").innerHTML=sb;
+  var ts="";
+  if(selP===null){
+    ts='<div style="text-align:center;color:#4A6070;font-size:13px;padding:24px;">⬆ プレイヤーを選択してください</div>';
+  } else {
+    var p=P[selP],mt=p.teams;
+    var mg=Object.keys(GROUPS).filter(function(g){return GROUPS[g].some(function(t){return mt.indexOf(t)!==-1;});});
+    var ag=mg.indexOf(dtab)!==-1?dtab:mg[0];
+    ts='<div style="font-size:11px;color:#8BA0B0;letter-spacing:2px;margin-bottom:6px;text-transform:uppercase;">'+x(p.name)+' のチームを選択</div>';
+    if(!mt.length){ts+='<div style="font-size:13px;color:#4A6070;font-style:italic;">チームが登録されていません</div>';}
+    else{
+      ts+='<div class="sx" style="margin-bottom:8px;">';
+      mg.forEach(function(g){ts+='<button onclick="setGT(\''+g+'\')" style="flex-shrink:0;padding:5px 12px;border-radius:8px;border:none;font-size:12px;font-weight:700;background:'+(ag===g?PC[selP]:"#1A2E3A")+';color:'+(ag===g?"#0D1B2A":"#8BA0B0")+';">グループ'+g+'</button>';});
+      ts+='</div><div style="display:flex;flex-wrap:wrap;gap:6px;">';
+      if(ag){GROUPS[ag].filter(function(t){return mt.indexOf(t)!==-1;}).forEach(function(t){ts+='<button onclick="selTm(\''+x(t)+'\')" style="background:'+(selT===t?PC[selP]:PC[selP]+"22")+';border:1.5px solid '+PC[selP]+'66;color:'+(selT===t?"#0D1B2A":PC[selP])+';border-radius:99px;padding:6px 16px;font-size:12px;font-weight:700;">'+x(t)+'</button>';});}
+      ts+='</div>';
+    }
+  }
+  document.getElementById("tsel").innerHTML=ts;
+  var eb="";
+  if(selT){
+    eb='<div style="font-size:11px;color:#8BA0B0;letter-spacing:2px;margin-bottom:8px;text-transform:uppercase;">イベント記録：'+x(selT)+'</div><div class="g2">';
+    EV.forEach(function(ev){
+      var bc=ev.rc?"#E6394655":ev.pts>=0?"#2D6A4F55":"#E6394655";
+      var bg=ev.rc?"#E6394618":ev.pts>=0?"#2D6A4F18":"#E6394618";
+      eb+='<button onclick="recEv(\''+ev.id+'\')" style="background:'+bg+';border:1.5px solid '+bc+';color:#E8F0FE;border-radius:10px;padding:10px;text-align:left;display:flex;justify-content:space-between;align-items:center;gap:4px;"><span style="font-size:12px;">'+x(ev.label)+'</span><span style="font-size:13px;font-weight:900;color:'+(ev.pts>=0?"#4CC9F0":"#E63946")+';flex-shrink:0;">'+(ev.pts>0?"+":"")+ev.pts.toLocaleString()+'</span></button>';
+    });
+    eb+='</div>';
+  }
+  document.getElementById("evbtn").innerHTML=eb;
+  var pp='<div style="background:#0A1520;border:1px solid #1A3A4A;border-radius:12px;padding:12px;"><div style="font-size:11px;color:#FFD60A;letter-spacing:2px;font-weight:700;margin-bottom:10px;text-transform:uppercase;">💳 支払いポイント（他3人の獲得ptを1/3負担）</div><div class="g2">';
+  P.forEach(function(p){
+    var e=totalPt(p.id),c=scost(p.id),n=netPt(p.id);
+    pp+='<div style="text-align:center;background:'+PB[p.id]+';border:1px solid '+PC[p.id]+'33;border-radius:8px;padding:8px 6px;"><div style="font-size:11px;color:'+PC[p.id]+';font-weight:700;margin-bottom:4px;">'+x(p.name)+'</div><div style="font-size:10px;color:#4A6070;">獲得 <span style="color:#4CC9F0;">+'+e.toLocaleString()+'</span></div><div style="font-size:10px;color:#4A6070;margin-bottom:4px;">支払 <span style="color:#E63946;">-'+c.toLocaleString()+'</span></div><div style="font-size:15px;font-weight:900;color:'+(n>=0?"#FFD60A":"#E63946")+';border-top:1px solid #1A2E3A;padding-top:4px;">'+fmt(n)+'<span style="font-size:10px;margin-left:2px;">pt</span></div></div>';
+  });
+  pp+='</div></div>';
+  document.getElementById("paypanel").innerHTML=pp;
+}
+
+function drawEdit(){
+  var h="";
+  EV.forEach(function(ev,i){
+    h+='<div style="background:#0A1520;border:1px solid #1A3A4A;border-radius:10px;padding:10px 12px;"><div style="margin-bottom:8px;"><div style="font-size:10px;color:#4A6070;margin-bottom:3px;">ラベル</div><input class="inp" data-ei="'+i+'" onchange="upLabel(this)" value="'+x(ev.label)+'"></div><div style="display:flex;align-items:center;gap:8px;"><div style="flex:1;"><div style="font-size:10px;color:#4A6070;margin-bottom:3px;">ポイント</div><input class="inp" type="number" data-ei="'+i+'" onchange="upPts(this)" value="'+ev.pts+'"></div><div style="display:flex;flex-direction:column;align-items:center;gap:6px;"><div style="font-size:10px;color:#4A6070;">RC扱い</div><div data-ei="'+i+'" onclick="flipRC(this)" style="width:36px;height:20px;border-radius:99px;position:relative;cursor:pointer;background:'+(ev.rc?"#E63946":"#1A2E3A")+';border:1px solid '+(ev.rc?"#E63946":"#2A3F50")+';"><div style="position:absolute;top:2px;left:'+(ev.rc?18:2)+'px;width:14px;height:14px;border-radius:50%;background:#fff;transition:left .2s;"></div></div></div><button data-ei="'+i+'" onclick="delEv(this)" style="background:#E6394620;border:1px solid #E6394655;color:#E63946;border-radius:8px;padding:6px 10px;font-size:12px;align-self:flex-end;">削除</button></div></div>';
+  });
+  document.getElementById("evlist").innerHTML=h;
+}
+
+function drawHist(){
+  var list=H.slice().reverse();
+  if(!list.length){document.getElementById("hlist").innerHTML='<div style="text-align:center;color:#4A6070;padding:40px;">まだ記録がありません</div>';return;}
+  var h="";
+  list.forEach(function(e){
+    var pid=e.pid;
+    h+='<div style="background:'+PB[pid]+';border:1px solid '+PC[pid]+'33;border-radius:10px;padding:10px 12px;"><div style="display:flex;justify-content:space-between;align-items:flex-start;"><div style="flex:1;min-width:0;"><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:3px;"><span style="font-size:12px;font-weight:800;color:'+PC[pid]+';">'+x(e.pname)+'</span><span style="font-size:11px;color:#8BA0B0;background:#0D1B2A;border-radius:99px;padding:1px 8px;">'+x(e.team)+'</span></div><div style="font-size:12px;color:#C0D0E0;">'+x(e.event)+'</div><div style="font-size:10px;color:#4A6070;margin-top:2px;">'+x(e.time)+'</div></div><div style="display:flex;align-items:center;gap:8px;flex-shrink:0;margin-left:8px;"><div style="font-size:16px;font-weight:900;color:'+(e.pts>0?"#4CC9F0":"#E63946")+'">'+(e.pts>0?"+":"")+e.pts.toLocaleString()+'</div><button data-hid="'+e.id+'" onclick="delH(this)" style="background:#E6394620;border:1px solid #E6394655;color:#E63946;border-radius:6px;padding:4px 8px;font-size:11px;">削除</button></div></div></div>';
+  });
+  document.getElementById("hlist").innerHTML=h;
+}
+
+function renP(el){var pid=parseInt(el.dataset.pid);P[pid].name=el.value;saveCloud();drawSetup();}
+function setDT(g){dtab=g;drawSetup();}
+function setGT(g){dtab=g;drawGame();}
+function togT(pid,team){
+  var own=owner(team);if(own&&own.id!==pid)return;
+  var idx=P[pid].teams.indexOf(team);
+  if(idx===-1){P[pid].teams.push(team);}else{P[pid].teams.splice(idx,1);}
+  saveCloud();drawSetup();
+}
+function selPl(id){
+  selP=id;selT=null;
+  var mt=P[id].teams;
+  var mg=Object.keys(GROUPS).filter(function(g){return GROUPS[g].some(function(t){return mt.indexOf(t)!==-1;});});
+  if(mg.length&&mg.indexOf(dtab)===-1)dtab=mg[0];
+  drawGame();
+}
+function selTm(t){selT=t;drawGame();}
+function recEv(evid){
+  if(selP===null||!selT)return;
+  var ev=EV.find(function(e){return e.id===evid;});if(!ev)return;
+  H.push({id:Date.now(),pid:selP,pname:P[selP].name,team:selT,event:ev.label,pts:ev.pts,rc:ev.rc,time:new Date().toLocaleString("ja-JP")});
+  saveCloud();
+  showToast(P[selP].name+" に "+(ev.pts>0?"+":"")+ev.pts.toLocaleString()+"pt！");
+  selT=null;drawGame();
+}
+function delH(el){
+  var id=parseInt(el.dataset.hid);H=H.filter(function(h){return h.id!==id;});saveCloud();drawHist();drawGame();
+}
+function upLabel(el){var i=parseInt(el.dataset.ei);EV[i].label=el.value;saveCloud();}
+function upPts(el){var i=parseInt(el.dataset.ei);EV[i].pts=parseInt(el.value,10)||0;saveCloud();}
+function flipRC(el){var i=parseInt(el.dataset.ei);EV[i].rc=!EV[i].rc;saveCloud();drawEdit();}
+function delEv(el){var i=parseInt(el.dataset.ei);EV.splice(i,1);saveCloud();drawEdit();}
+function flipNRC(){
+  nrcOn=!nrcOn;
+  var el=document.getElementById("nrc"),k=document.getElementById("nrc-k");
+  el.style.background=nrcOn?"#E63946":"#1A2E3A";el.style.borderColor=nrcOn?"#E63946":"#2A3F50";k.style.left=nrcOn?"18px":"2px";
+}
+function addEv(){
+  var label=document.getElementById("nl").value.trim();
+  var pts=parseInt(document.getElementById("np").value,10);
+  if(!label||isNaN(pts)){showToast("ラベルとポイントを入力してください",true);return;}
+  EV.push({id:"c"+(eid++),label:label,pts:pts,rc:nrcOn});saveCloud();
+  document.getElementById("nl").value="";document.getElementById("np").value="";
+  nrcOn=false;var el=document.getElementById("nrc"),k=document.getElementById("nrc-k");
+  el.style.background="#1A2E3A";el.style.borderColor="#2A3F50";k.style.left="2px";
+  drawEdit();showToast("追加しました！");
+}
+function resetAll(){
+  if(!confirm("全データをリセットしますか？"))return;
+  P=[{id:0,name:"プレイヤー1",teams:[]},{id:1,name:"プレイヤー2",teams:[]},{id:2,name:"プレイヤー3",teams:[]},{id:3,name:"プレイヤー4",teams:[]}];
+  H=[];EV=DEV.map(function(e){return {id:e.id,label:e.label,pts:e.pts,rc:e.rc};});
+  selP=null;selT=null;saveCloud();drawSetup();drawGame();showToast("🗑 リセットしました");
+}
+
+loadCloud();
+</script>
+</body>
+</html>
